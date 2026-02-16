@@ -10,8 +10,8 @@ import {
   Handle,
   Position,
   SelectionMode,
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 
 // --- Custom Node Component ---
 const StoryNode = ({ data, selected }) => {
@@ -154,10 +154,6 @@ export default function PlotApp() {
         label: 'จุดเริ่มต้นการเดินทาง',
         summary: 'Leon ตื่นขึ้นมาในป่าอาถรรพ์...',
         characters: ['char1'],
-        allCharacters: characters,
-        onUpdate: handleUpdateNode,
-        onDelete: deleteNode,
-        onToggleChar: handleToggleChar
       }
     },
     {
@@ -169,16 +165,12 @@ export default function PlotApp() {
         label: 'พบ Mia',
         summary: 'Leon ได้พบกับ Mia ที่กำลังเก็บสมุนไพร...',
         characters: ['char1', 'char2'],
-        allCharacters: characters,
-        onUpdate: handleUpdateNode,
-        onDelete: deleteNode,
-        onToggleChar: handleToggleChar
       }
     },
   ]);
 
   const [edges, setEdges, onEdgesChange] = useEdgesState([
-    { id: 'e1-2', source: '1', target: '2', animated: true, style: { stroke: '#fff' } }
+    { id: 'e1-2', source: 'node1', target: 'node2', animated: true, style: { stroke: '#fff' } }
   ]);
 
   const [selectedNodeId, setSelectedNodeId] = useState(null);
@@ -277,10 +269,6 @@ export default function PlotApp() {
         label: 'เหตุการณ์ใหม่',
         summary: '',
         characters: [],
-        allCharacters: characters,
-        onUpdate: handleUpdateNode,
-        onDelete: deleteNode,
-        onToggleChar: handleToggleChar
       }
     };
     setNodes((nds) => nds.concat(newNode));
@@ -371,7 +359,6 @@ export default function PlotApp() {
     const newChar = { id: newId, name: 'ตัวละครใหม่', color: '#999999', description: '', imageUrl: null };
     const updated = [...characters, newChar];
     setCharacters(updated);
-    syncNodesWithCharacters(updated);
     setEditingCharId(newId);
     setSelectedEdgeId(null);
   };
@@ -388,7 +375,6 @@ export default function PlotApp() {
   const updateCharacter = (id, key, value) => {
     setCharacters((prev) => {
       const updated = prev.map(c => c.id === id ? { ...c, [key]: value } : c);
-      syncNodesWithCharacters(updated); // สำคัญมาก: ต้องส่งค่าใหม่เข้าไปซิงค์
       return updated;
     });
   };
@@ -483,7 +469,7 @@ export default function PlotApp() {
       {/* 2. Canvas Center */}
       <div style={{ flex: 1, position: 'relative' }}>
         <ReactFlow
-          nodes={nodes}
+          nodes={nodesWithHelpers}
           edges={edges.map((e) => ({
             ...e,
             style: e.id === intersectingEdgeId

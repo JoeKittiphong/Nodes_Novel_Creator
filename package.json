@@ -12,6 +12,11 @@
   "author": "",
   "license": "ISC",
   "type": "module",
+  "dependencies": {
+    "@xyflow/react": "^12.4.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.4",
     "vite": "^7.3.1"

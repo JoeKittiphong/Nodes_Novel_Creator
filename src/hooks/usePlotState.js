@@ -1,35 +1,56 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNodesState, useEdgesState, addEdge } from '@xyflow/react';
+import { saveProject, loadProject, deleteProject } from '../utils/db';
+
+// --- Default initial data ---
+const DEFAULT_CHARACTERS = {
+    'char1': { id: 'char1', name: 'Leon', color: '#3b82f6', description: 'ผู้กล้าที่ตื่นขึ้นมาอย่างไร้ความทรงจำ', imageUrl: null, mbti: '', background: '' },
+    'char2': { id: 'char2', name: 'Mia', color: '#ec4899', description: 'นักเวทย์สาวผู้รอบรู้เรื่องสมุนไพร', imageUrl: null, mbti: '', background: '' }
+};
+const DEFAULT_ITEMS = {
+    'item1': { id: 'item1', name: 'ดาบหัก', color: '#f59e0b', description: 'ดาบเก่าที่ติดตัว Leon มา', imageUrl: null }
+};
+const DEFAULT_LOCATIONS = {
+    'loc1': { id: 'loc1', name: 'ป่าอาถรรพ์', color: '#a855f7', description: 'ป่าที่เต็มไปด้วยหมอกพิษ', imageUrl: null }
+};
+const DEFAULT_STATUSES = {};
+const DEFAULT_NODES = [
+    { id: 'node1', type: 'storyNode', position: { x: 400, y: 50 }, data: { id: 'node1', label: 'จุดเริ่มต้นการเดินทาง', summary: 'Leon ตื่นขึ้นมาในป่าอาถรรพ์...', level: 'main' } },
+    { id: 'node2', type: 'storyNode', position: { x: 400, y: 300 }, data: { id: 'node2', label: 'พบ Mia', summary: 'Leon ได้พบกับ Mia ที่กำลังเก็บสมุนไพร...', level: 'secondary' } },
+    { id: 'inst-c1', type: 'characterNode', position: { x: 50, y: 50 }, data: { characterId: 'char1' } },
+    { id: 'inst-l1', type: 'locationNode', position: { x: 50, y: 250 }, data: { locationId: 'loc1' } },
+    { id: 'inst-i1', type: 'itemNode', position: { x: 50, y: 400 }, data: { itemId: 'item1' } },
+];
+const DEFAULT_EDGES = [
+    { id: 'e1-2', source: 'node1', sourceHandle: 'story-source', target: 'node2', targetHandle: 'story-target', animated: true, type: 'customEdge', style: { stroke: '#fff' } },
+    { id: 'c1-n1', source: 'inst-c1', sourceHandle: 'char-source', target: 'node1', targetHandle: 'char-target-L', animated: true, type: 'customEdge', style: { stroke: '#3b82f6' } },
+    { id: 'l1-n1', source: 'inst-l1', sourceHandle: 'loc-source', target: 'node1', targetHandle: 'loc-target-L', animated: true, type: 'customEdge', style: { stroke: '#a855f7' } },
+    { id: 'i1-n1', source: 'inst-i1', sourceHandle: 'item-source', target: 'node1', targetHandle: 'item-target-L', animated: true, type: 'customEdge', style: { stroke: '#f59e0b' } }
+];
+
+// --- Helper: strip runtime functions from data before saving ---
+const cleanNodesForSave = (nodes) => nodes.map(n => {
+    const { onUpdate, onDelete, onHeightChange, onToggleChar, allCharacters,
+        connectedCharacters, connectedItems, connectedLocations, connectedStatuses,
+        ...cleanData } = n.data;
+    return { ...n, data: cleanData };
+});
+const cleanEdgesForSave = (edges) => edges.map(e => {
+    const { onDelete, ...cleanData } = (e.data || {});
+    return { ...e, data: cleanData };
+});
 
 export const usePlotState = () => {
-    // 1. Central Source of Truth for Character Data
-    const [characterDefinitions, setCharacterDefinitions] = useState({
-        'char1': { id: 'char1', name: ' Leon', color: '#3b82f6', description: 'ผู้กล้าที่ตื่นขึ้นมาอย่างไร้ความทรงจำ', imageUrl: null },
-        'char2': { id: 'char2', name: 'Mia', color: '#ec4899', description: 'นักเวทย์สาวผู้รอบรู้เรื่องสมุนไพร', imageUrl: null }
-    });
+    // 1. Central Source of Truth for Definitions
+    const [characterDefinitions, setCharacterDefinitions] = useState(DEFAULT_CHARACTERS);
+    const [itemDefinitions, setItemDefinitions] = useState(DEFAULT_ITEMS);
+    const [locationDefinitions, setLocationDefinitions] = useState(DEFAULT_LOCATIONS);
+    const [statusDefinitions, setStatusDefinitions] = useState(DEFAULT_STATUSES);
 
-    const [itemDefinitions, setItemDefinitions] = useState({
-        'item1': { id: 'item1', name: 'ดาบหัก', color: '#f59e0b', description: 'ดาบเก่าที่ติดตัว Leon มา', imageUrl: null }
-    });
+    const [nodes, setNodes, onNodesChange] = useNodesState(DEFAULT_NODES);
+    const [edges, setEdges, onEdgesChange] = useEdgesState(DEFAULT_EDGES);
 
-    const [locationDefinitions, setLocationDefinitions] = useState({
-        'loc1': { id: 'loc1', name: 'ป่าอาถรรพ์', color: '#a855f7', description: 'ป่าที่เต็มไปด้วยหมอกพิษ', imageUrl: null }
-    });
-
-    const [nodes, setNodes, onNodesChange] = useNodesState([
-        { id: 'node1', type: 'storyNode', position: { x: 400, y: 50 }, data: { id: 'node1', label: 'จุดเริ่มต้นการเดินทาง', summary: 'Leon ตื่นขึ้นมาในป่าอาถรรพ์...', level: 'main' } },
-        { id: 'node2', type: 'storyNode', position: { x: 400, y: 300 }, data: { id: 'node2', label: 'พบ Mia', summary: 'Leon ได้พบกับ Mia ที่กำลังเก็บสมุนไพร...', level: 'secondary' } },
-        { id: 'inst-c1', type: 'characterNode', position: { x: 50, y: 50 }, data: { characterId: 'char1' } },
-        { id: 'inst-l1', type: 'locationNode', position: { x: 50, y: 250 }, data: { locationId: 'loc1' } },
-        { id: 'inst-i1', type: 'itemNode', position: { x: 50, y: 400 }, data: { itemId: 'item1' } },
-    ]);
-
-    const [edges, setEdges, onEdgesChange] = useEdgesState([
-        { id: 'e1-2', source: 'node1', sourceHandle: 'story-source', target: 'node2', targetHandle: 'story-target', animated: true, type: 'customEdge', style: { stroke: '#fff' } },
-        { id: 'c1-n1', source: 'inst-c1', sourceHandle: 'char-source', target: 'node1', targetHandle: 'char-target-L', animated: true, type: 'customEdge', style: { stroke: '#3b82f6' } },
-        { id: 'l1-n1', source: 'inst-l1', sourceHandle: 'loc-source', target: 'node1', targetHandle: 'loc-target-L', animated: true, type: 'customEdge', style: { stroke: '#a855f7' } },
-        { id: 'i1-n1', source: 'inst-i1', sourceHandle: 'item-source', target: 'node1', targetHandle: 'item-target-L', animated: true, type: 'customEdge', style: { stroke: '#f59e0b' } }
-    ]);
+    const [isLoaded, setIsLoaded] = useState(false);
 
     const [selectedNodeId, setSelectedNodeId] = useState(null);
     const [editingCharId, setEditingCharId] = useState(null);
@@ -38,16 +59,50 @@ export const usePlotState = () => {
     const [selectedItems, setSelectedItems] = useState({ nodes: [], edges: [] });
     const [isSelectionMode, setIsSelectionMode] = useState(false);
 
+    // --- Load from IndexedDB on start ---
+    useEffect(() => {
+        loadProject().then(saved => {
+            if (saved) {
+                if (saved.characterDefinitions) setCharacterDefinitions(saved.characterDefinitions);
+                if (saved.itemDefinitions) setItemDefinitions(saved.itemDefinitions);
+                if (saved.locationDefinitions) setLocationDefinitions(saved.locationDefinitions);
+                if (saved.statusDefinitions) setStatusDefinitions(saved.statusDefinitions);
+                if (saved.nodes) setNodes(saved.nodes);
+                if (saved.edges) setEdges(saved.edges);
+            }
+            setIsLoaded(true);
+        });
+    }, []);
+
+    // --- Auto-save to IndexedDB (debounced) ---
+    useEffect(() => {
+        if (!isLoaded) return; // Don't save until initial load completes
+
+        const timer = setTimeout(() => {
+            const projectData = {
+                characterDefinitions,
+                itemDefinitions,
+                locationDefinitions,
+                statusDefinitions,
+                nodes: cleanNodesForSave(nodes),
+                edges: cleanEdgesForSave(edges)
+            };
+            saveProject(projectData);
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [nodes, edges, characterDefinitions, itemDefinitions, locationDefinitions, statusDefinitions, isLoaded]);
+
     // Derived lists for Navbar
     const charactersList = useMemo(() => Object.values(characterDefinitions), [characterDefinitions]);
     const itemsList = useMemo(() => Object.values(itemDefinitions), [itemDefinitions]);
     const locationsList = useMemo(() => Object.values(locationDefinitions), [locationDefinitions]);
+    const statusesList = useMemo(() => Object.values(statusDefinitions), [statusDefinitions]);
 
     const handleUpdateNode = useCallback((id, key, value) => {
         setNodes((nds) => {
             const node = nds.find(n => n.id === id);
 
-            // Sync with central definitions
             if (node?.type === 'characterNode' && node.data.characterId) {
                 setCharacterDefinitions(prev => ({ ...prev, [node.data.characterId]: { ...prev[node.data.characterId], [key]: value } }));
                 return nds;
@@ -61,7 +116,7 @@ export const usePlotState = () => {
                 return nds;
             }
 
-            // Normal node update
+
             return nds.map(n => n.id === id ? { ...n, data: { ...n.data, [key]: value } } : n);
         });
     }, [setNodes]);
@@ -75,9 +130,7 @@ export const usePlotState = () => {
     const addEvent = useCallback(() => {
         const newId = `node-${Date.now()}`;
         setNodes((nds) => nds.concat({
-            id: newId,
-            type: 'storyNode',
-            position: { x: 400, y: 500 },
+            id: newId, type: 'storyNode', position: { x: 400, y: 500 },
             data: { id: newId, label: 'เหตุการณ์ใหม่', summary: '', level: 'secondary' }
         }));
         setSelectedNodeId(newId);
@@ -86,7 +139,7 @@ export const usePlotState = () => {
     // Character helpers
     const addCharacter = useCallback(() => {
         const charId = `char-${Date.now()}`, instId = `inst-${Date.now()}`;
-        setCharacterDefinitions(prev => ({ ...prev, [charId]: { id: charId, name: 'ตัวละครใหม่', color: '#999999', description: '', imageUrl: null } }));
+        setCharacterDefinitions(prev => ({ ...prev, [charId]: { id: charId, name: 'ตัวละครใหม่', color: '#999999', description: '', imageUrl: null, mbti: '', background: '' } }));
         setNodes((nds) => nds.concat({ id: instId, type: 'characterNode', position: { x: 50, y: 400 }, data: { characterId: charId } }));
     }, [setNodes]);
     const addCharacterInstance = useCallback((charId) => {
@@ -116,31 +169,30 @@ export const usePlotState = () => {
         setNodes((nds) => nds.concat({ id: instId, type: 'locationNode', position: { x: 100, y: 100 }, data: { locationId: locId } }));
     }, [setNodes]);
 
+    // Status helpers — each instance is independent (data stored in node.data)
+    const addStatus = useCallback(() => {
+        const statusId = `status-${Date.now()}`, instId = `inst-s-${Date.now()}`;
+        const template = { name: 'สถานะใหม่', color: '#f472b6', description: '' };
+        setStatusDefinitions(prev => ({ ...prev, [statusId]: { id: statusId, ...template } }));
+        setNodes((nds) => nds.concat({ id: instId, type: 'statusNode', position: { x: 50, y: 700 }, data: { statusId: statusId, ...template } }));
+    }, [setNodes]);
+    const addStatusInstance = useCallback((statusId) => {
+        const instId = `inst-s-${Date.now()}`;
+        const template = statusDefinitions[statusId];
+        setNodes((nds) => nds.concat({ id: instId, type: 'statusNode', position: { x: 100, y: 100 }, data: { name: template?.name || 'สถานะ', color: template?.color || '#f472b6', description: template?.description || '' } }));
+    }, [setNodes, statusDefinitions]);
+
     const pushDownstreamNodes = useCallback((targetId, dx, dy, currentNodes, currentEdges) => {
         const downstreamIds = new Set();
         const queue = [targetId];
-
         while (queue.length > 0) {
             const currentId = queue.shift();
             if (!downstreamIds.has(currentId)) {
                 downstreamIds.add(currentId);
-                currentEdges.forEach(edge => {
-                    if (edge.source === currentId) {
-                        queue.push(edge.target);
-                    }
-                });
+                currentEdges.forEach(edge => { if (edge.source === currentId) queue.push(edge.target); });
             }
         }
-
-        return currentNodes.map(n => {
-            if (downstreamIds.has(n.id)) {
-                return {
-                    ...n,
-                    position: { x: n.position.x + dx, y: n.position.y + dy }
-                };
-            }
-            return n;
-        });
+        return currentNodes.map(n => downstreamIds.has(n.id) ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } } : n);
     }, []);
 
     const handleHeightChange = useCallback((nodeId, dy) => {
@@ -154,29 +206,16 @@ export const usePlotState = () => {
                 const currentId = queue.shift();
                 if (!downstreamIds.has(currentId)) {
                     downstreamIds.add(currentId);
-                    edges.forEach(edge => {
-                        if (edge.source === currentId) queue.push(edge.target);
-                    });
+                    edges.forEach(edge => { if (edge.source === currentId) queue.push(edge.target); });
                 }
             }
 
             const physicalBelowIds = nds.filter(n =>
-                n.id !== nodeId &&
-                n.position.y > growingNode.position.y &&
-                Math.abs(n.position.x - growingNode.position.x) < 200
+                n.id !== nodeId && n.position.y > growingNode.position.y && Math.abs(n.position.x - growingNode.position.x) < 200
             ).map(n => n.id);
 
             const allToMove = new Set([...downstreamIds, ...physicalBelowIds]);
-
-            return nds.map(n => {
-                if (allToMove.has(n.id)) {
-                    return {
-                        ...n,
-                        position: { x: n.position.x, y: n.position.y + dy }
-                    };
-                }
-                return n;
-            });
+            return nds.map(n => allToMove.has(n.id) ? { ...n, position: { x: n.position.x, y: n.position.y + dy } } : n);
         });
     }, [edges, setNodes]);
 
@@ -187,11 +226,12 @@ export const usePlotState = () => {
             if (n.type === 'characterNode' && n.data.characterId) dataProps = { ...dataProps, ...characterDefinitions[n.data.characterId] };
             if (n.type === 'itemNode' && n.data.itemId) dataProps = { ...dataProps, ...itemDefinitions[n.data.itemId] };
             if (n.type === 'locationNode' && n.data.locationId) dataProps = { ...dataProps, ...locationDefinitions[n.data.locationId] };
+            // statusNode: data is already in node.data — no definition spread needed
 
+            // Inject connected entities for StoryNode
             if (n.type === 'storyNode') {
                 const incomingEdges = edges.filter(e => e.target === n.id);
                 const sourceIds = incomingEdges.map(e => e.source);
-
                 const charDefIds = new Set(), itemDefIds = new Set(), locDefIds = new Set();
                 nodes.forEach(node => {
                     if (sourceIds.includes(node.id)) {
@@ -200,24 +240,19 @@ export const usePlotState = () => {
                         if (node.type === 'locationNode') locDefIds.add(node.data.locationId);
                     }
                 });
-
                 dataProps.connectedCharacters = Array.from(charDefIds).map(id => characterDefinitions[id]).filter(Boolean);
                 dataProps.connectedItems = Array.from(itemDefIds).map(id => itemDefinitions[id]).filter(Boolean);
                 dataProps.connectedLocations = Array.from(locDefIds).map(id => locationDefinitions[id]).filter(Boolean);
             }
 
+
+
             return {
                 ...n,
-                data: {
-                    ...dataProps,
-                    id: n.id,
-                    onUpdate: handleUpdateNode,
-                    onDelete: deleteNode,
-                    onHeightChange: handleHeightChange
-                }
+                data: { ...dataProps, id: n.id, onUpdate: handleUpdateNode, onDelete: deleteNode, onHeightChange: handleHeightChange }
             };
         });
-    }, [nodes, edges, characterDefinitions, itemDefinitions, locationDefinitions, handleUpdateNode, deleteNode, handleHeightChange]);
+    }, [nodes, edges, characterDefinitions, itemDefinitions, locationDefinitions, statusDefinitions, handleUpdateNode, deleteNode, handleHeightChange]);
 
     const deleteEdge = useCallback((id) => {
         setEdges((eds) => eds.filter((e) => e.id !== id));
@@ -230,34 +265,35 @@ export const usePlotState = () => {
             const sourceNode = nodes.find(n => n.id === source);
             const targetNode = nodes.find(n => n.id === target);
 
-            // Validation logic
             let isValid = false;
 
-            // 1. Story to Story flow
             if (sourceNode?.type === 'storyNode' && targetNode?.type === 'storyNode') {
                 if (sourceHandle === 'story-source' && targetHandle === 'story-target') isValid = true;
             }
 
-            // 2. Character connections
             const isCharSource = sourceHandle?.startsWith('char-source') || sourceNode?.type === 'characterNode';
             const isCharTarget = targetHandle?.startsWith('char-target');
             if (isCharSource && isCharTarget) isValid = true;
 
-            // 3. Item connections
             const isItemSource = sourceHandle?.startsWith('item-source') || sourceNode?.type === 'itemNode';
             const isItemTarget = targetHandle?.startsWith('item-target');
             if (isItemSource && isItemTarget) isValid = true;
 
-            // 4. Location connections
             const isLocSource = sourceHandle?.startsWith('loc-source') || sourceNode?.type === 'locationNode';
             const isLocTarget = targetHandle?.startsWith('loc-target');
             if (isLocSource && isLocTarget) isValid = true;
 
+            // Status can connect to any target
+            const isStatusSource = sourceHandle?.startsWith('status-source') || sourceNode?.type === 'statusNode';
+            if (isStatusSource && targetNode) isValid = true;
+
             if (!isValid) return;
 
             let color = '#fff';
-            if (isCharSource) {
-                const charId = sourceNode?.data?.characterId || (sourceNode?.id === source ? sourceNode.data.characterId : null);
+            if (isStatusSource) {
+                color = sourceNode?.data?.color || '#f472b6';
+            } else if (isCharSource) {
+                const charId = sourceNode?.data?.characterId;
                 color = (charId && characterDefinitions[charId]?.color) || '#3b82f6';
             } else if (isItemSource) {
                 const itemId = sourceNode?.data?.itemId;
@@ -275,17 +311,11 @@ export const usePlotState = () => {
                 data: { onDelete: deleteEdge }
             }, eds));
         },
-        [nodes, characterDefinitions, itemDefinitions, locationDefinitions, setEdges, deleteEdge],
+        [nodes, characterDefinitions, itemDefinitions, locationDefinitions, statusDefinitions, setEdges, deleteEdge],
     );
 
     const edgesWithHelpers = useMemo(() => {
-        return edges.map(e => ({
-            ...e,
-            data: {
-                ...e.data,
-                onDelete: deleteEdge
-            }
-        }));
+        return edges.map(e => ({ ...e, data: { ...e.data, onDelete: deleteEdge } }));
     }, [edges, deleteEdge]);
 
     const updateCharacter = useCallback((id, key, value) => {
@@ -297,13 +327,14 @@ export const usePlotState = () => {
     const updateLocation = useCallback((id, key, value) => {
         setLocationDefinitions(prev => ({ ...prev, [id]: { ...prev[id], [key]: value } }));
     }, []);
+    const updateStatus = useCallback((id, key, value) => {
+        setStatusDefinitions(prev => ({ ...prev, [id]: { ...prev[id], [key]: value } }));
+    }, []);
 
     const groupSelectedNodes = useCallback((selectedNodes) => {
         if (!selectedNodes || selectedNodes.length < 2) return;
 
-        // 1. Calculate Bounding Box
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
         selectedNodes.forEach(node => {
             const w = node.measured?.width || 280;
             const h = node.measured?.height || 150;
@@ -314,48 +345,87 @@ export const usePlotState = () => {
         });
 
         const padding = 40;
-        const groupX = minX - padding;
-        const groupY = minY - padding;
-        const groupW = (maxX - minX) + (padding * 2);
-        const groupH = (maxY - minY) + (padding * 2);
+        const groupX = minX - padding, groupY = minY - padding;
+        const groupW = (maxX - minX) + (padding * 2), groupH = (maxY - minY) + (padding * 2);
 
         const groupId = `group-${Date.now()}`;
         const newGroup = {
-            id: groupId,
-            type: 'groupNode',
-            position: { x: groupX, y: groupY },
-            data: { label: 'กลุ่มใหม่', id: groupId },
-            style: { width: groupW, height: groupH },
-            zIndex: -1
+            id: groupId, type: 'groupNode', position: { x: groupX, y: groupY },
+            data: { label: 'กลุ่มใหม่', id: groupId }, style: { width: groupW, height: groupH }, zIndex: -1
         };
 
-        // 2. Reparent selected nodes
         setNodes(nds => {
             const updatedNodes = nds.map(n => {
                 const isSelected = selectedNodes.find(sn => sn.id === n.id);
                 if (isSelected) {
-                    return {
-                        ...n,
-                        parentId: groupId,
-                        extent: 'parent',
-                        position: {
-                            x: n.position.x - groupX,
-                            y: n.position.y - groupY
-                        }
-                    };
+                    return { ...n, parentId: groupId, extent: 'parent', position: { x: n.position.x - groupX, y: n.position.y - groupY } };
                 }
                 return n;
             });
             return [newGroup, ...updatedNodes];
         });
-
         setSelectedNodeId(groupId);
     }, [setNodes]);
+
+    // --- Export/Import/Clear ---
+    const exportProject = useCallback(() => {
+        const projectData = {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            characterDefinitions,
+            itemDefinitions,
+            locationDefinitions,
+            statusDefinitions,
+            nodes: cleanNodesForSave(nodes),
+            edges: cleanEdgesForSave(edges)
+        };
+        const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `novel-project-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }, [nodes, edges, characterDefinitions, itemDefinitions, locationDefinitions, statusDefinitions]);
+
+    const importProject = useCallback((file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.characterDefinitions) setCharacterDefinitions(data.characterDefinitions);
+                if (data.itemDefinitions) setItemDefinitions(data.itemDefinitions);
+                if (data.locationDefinitions) setLocationDefinitions(data.locationDefinitions);
+                if (data.statusDefinitions) setStatusDefinitions(data.statusDefinitions);
+                if (data.nodes) setNodes(data.nodes);
+                if (data.edges) setEdges(data.edges);
+            } catch (err) {
+                console.error('Failed to import project:', err);
+                alert('ไม่สามารถโหลดไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์');
+            }
+        };
+        reader.readAsText(file);
+    }, [setNodes, setEdges]);
+
+    const clearProject = useCallback(() => {
+        setCharacterDefinitions({});
+        setItemDefinitions({});
+        setLocationDefinitions({});
+        setStatusDefinitions({});
+        setNodes([]);
+        setEdges([]);
+        setSelectedNodeId(null);
+        setEditingCharId(null);
+        setSelectedEdgeId(null);
+        deleteProject();
+    }, [setNodes, setEdges]);
 
     return {
         characters: charactersList,
         items: itemsList,
         locations: locationsList,
+        statuses: statusesList,
+        characterDefinitions, itemDefinitions, locationDefinitions, statusDefinitions,
         nodes, setNodes, onNodesChange,
         edges, setEdges, onEdgesChange,
         edgesWithHelpers,
@@ -369,7 +439,9 @@ export const usePlotState = () => {
         addEvent, addCharacter, addCharacterInstance, updateCharacter,
         addItem, addItemInstance, updateItem,
         addLocation, addLocationInstance, updateLocation,
+        addStatus, addStatusInstance, updateStatus,
         nodesWithHelpers, onConnect, pushDownstreamNodes,
-        groupSelectedNodes
+        groupSelectedNodes,
+        exportProject, importProject, clearProject
     };
 };

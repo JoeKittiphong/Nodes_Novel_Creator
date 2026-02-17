@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
+import AttachedStatuses from './AttachedStatuses';
 
 const ItemNode = ({ data, selected }) => {
     const textareaRef = useRef(null);
@@ -187,6 +188,9 @@ const ItemNode = ({ data, selected }) => {
                     }}
                 />
             </div>
+
+            {/* Attached Status Tags */}
+            <AttachedStatuses statuses={data.attachedStatuses} onDetach={data.onDetachStatus} />
 
             {/* Connection Handles */}
             <Handle type="target" position={Position.Top} id="item-target" style={{ background: data.color || '#f59e0b' }} />

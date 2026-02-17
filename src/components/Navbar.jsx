@@ -1,81 +1,80 @@
-import React from 'react';
+import React, { useRef } from 'react';
 
 const Navbar = ({
-    characters, items, locations,
     addEvent,
     isSelectionMode, setIsSelectionMode,
-    addCharacter, addCharacterInstance,
-    addItem, addItemInstance,
-    addLocation, addLocationInstance
+    exportProject, importProject, clearProject,
+    showSummary, setShowSummary,
+    showLibrary, setShowLibrary
 }) => {
+    const importRef = useRef(null);
+
+    const handleImport = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            importProject(file);
+            e.target.value = '';
+        }
+    };
+
+    const handleClear = () => {
+        if (window.confirm('ต้องการสร้างโปรเจกต์ใหม่? ข้อมูลปัจจุบันจะถูกลบทั้งหมด')) {
+            clearProject();
+        }
+    };
+
     return (
         <div style={{
-            height: '65px',
-            background: 'rgba(20, 20, 20, 0.9)',
+            height: '50px',
+            background: 'rgba(20, 20, 20, 0.95)',
             backdropFilter: 'blur(10px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0 20px',
+            padding: '0 16px',
             borderBottom: '1px solid #333',
             zIndex: 1000,
-            position: 'relative',
-            gap: '20px'
+            gap: '10px'
         }}>
-            {/* Left Section: App Title & Story Tools */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexShrink: 0 }}>
-                <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#60a5fa', fontWeight: 'bold' }}>📖 NovelNode</h2>
-                <div style={{ height: '24px', width: '1px', background: '#444' }}></div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={addEvent} style={{ background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontWeight: '600', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <span>+</span> เหตุการณ์
-                    </button>
-                    <button onClick={() => setIsSelectionMode(!isSelectionMode)} style={{ background: isSelectionMode ? '#fbbf24' : '#333', color: isSelectionMode ? '#000' : '#fff', border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontWeight: '600', fontSize: '0.8rem' }}>
-                        {isSelectionMode ? '🔦 เลือกหลายอัน' : '🖱️ ปกติ'}
-                    </button>
-                </div>
+            {/* Left: Title + Tools */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 style={{ margin: 0, fontSize: '1rem', color: '#60a5fa', fontWeight: 'bold' }}>📖 NovelNode</h2>
+                <div style={{ height: '20px', width: '1px', background: '#333' }} />
+                <button
+                    onClick={() => setShowLibrary(!showLibrary)}
+                    style={{
+                        background: showLibrary ? '#60a5fa22' : '#333',
+                        color: showLibrary ? '#60a5fa' : '#fff',
+                        border: showLibrary ? '1px solid #60a5fa44' : '1px solid transparent',
+                        borderRadius: '6px', padding: '4px 10px', cursor: 'pointer',
+                        fontWeight: '600', fontSize: '0.75rem'
+                    }}
+                >
+                    📚 Library
+                </button>
+                <button onClick={addEvent} style={{ background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontWeight: '600', fontSize: '0.75rem' }}>
+                    + เหตุการณ์
+                </button>
+                <button onClick={() => setIsSelectionMode(!isSelectionMode)} style={{ background: isSelectionMode ? '#fbbf24' : '#333', color: isSelectionMode ? '#000' : '#fff', border: 'none', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontWeight: '600', fontSize: '0.75rem' }}>
+                    {isSelectionMode ? '🔦 เลือกหลาย' : '🖱️ ปกติ'}
+                </button>
+                <button onClick={() => setShowSummary(!showSummary)} style={{ background: showSummary ? '#60a5fa' : '#333', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontWeight: '600', fontSize: '0.75rem' }}>
+                    📋 {showSummary ? 'ปิดสรุป' : 'สรุปเรื่อง'}
+                </button>
             </div>
 
-            {/* Middle Section: Libraries (Character, Location, Item) */}
-            <div style={{ display: 'flex', flex: 1, justifyContent: 'center', gap: '25px', overflow: 'hidden' }}>
-                {/* Character Library */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.7rem', color: '#666', fontWeight: 'bold', textTransform: 'uppercase' }}>ตัวละคร:</span>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                        {characters.map(char => (
-                            <div key={char.id} onClick={() => addCharacterInstance(char.id)} title={`เพิ่ม ${char.name}`} style={{ width: '28px', height: '28px', borderRadius: '50%', background: char.imageUrl ? 'transparent' : char.color, border: `2px solid ${char.color}`, cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                                {char.imageUrl ? <img src={char.imageUrl} alt={char.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '0.7rem' }}>👤</span>}
-                            </div>
-                        ))}
-                        <button onClick={addCharacter} style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#333', border: '1px dashed #666', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>+</button>
-                    </div>
-                </div>
-
-                {/* Location Library */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.7rem', color: '#666', fontWeight: 'bold', textTransform: 'uppercase' }}>สถานที่:</span>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                        {locations.map(loc => (
-                            <div key={loc.id} onClick={() => addLocationInstance(loc.id)} title={`เพิ่ม ${loc.name}`} style={{ width: '28px', height: '28px', borderRadius: '6px', background: loc.imageUrl ? 'transparent' : loc.color, border: `2px solid ${loc.color}`, cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                {loc.imageUrl ? <img src={loc.imageUrl} alt={loc.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '0.8rem' }}>🏠</span>}
-                            </div>
-                        ))}
-                        <button onClick={addLocation} style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#333', border: '1px dashed #666', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>+</button>
-                    </div>
-                </div>
-
-                {/* Item Library */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.7rem', color: '#666', fontWeight: 'bold', textTransform: 'uppercase' }}>สิ่งของ:</span>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                        {items.map(item => (
-                            <div key={item.id} onClick={() => addItemInstance(item.id)} title={`เพิ่ม ${item.name}`} style={{ width: '28px', height: '28px', borderRadius: '6px', background: item.imageUrl ? 'transparent' : item.color, border: `2px solid ${item.color}`, cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                {item.imageUrl ? <img src={item.imageUrl} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '0.8rem' }}>📦</span>}
-                            </div>
-                        ))}
-                        <button onClick={addItem} style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#333', border: '1px dashed #666', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>+</button>
-                    </div>
-                </div>
+            {/* Right: Save/Load */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button onClick={exportProject} title="Export JSON" style={{ background: '#333', color: '#fff', border: '1px solid #444', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}>
+                    💾 Export
+                </button>
+                <button onClick={() => importRef.current?.click()} title="Import JSON" style={{ background: '#333', color: '#fff', border: '1px solid #444', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}>
+                    📂 Import
+                </button>
+                <input ref={importRef} type="file" accept=".json" onChange={handleImport} style={{ display: 'none' }} />
+                <button onClick={handleClear} title="New Project" style={{ background: '#ef444422', color: '#ef4444', border: '1px solid #ef444444', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}>
+                    🗑️
+                </button>
             </div>
         </div>
     );

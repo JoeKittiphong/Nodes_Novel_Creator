@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Handle, Position } from '@xyflow/react';
+import AttachedStatuses from './AttachedStatuses';
 
 const StoryNode = ({ data, selected }) => {
     const textareaRef = useRef(null);
@@ -161,6 +162,36 @@ const StoryNode = ({ data, selected }) => {
                 />
             </div>
 
+            {/* Chapter Badge + Write Button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
+                <button
+                    onClick={(e) => { e.stopPropagation(); data.onOpenChapterEditor && data.onOpenChapterEditor(data.id); }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    style={{
+                        background: data.chapters?.length > 0 ? '#60a5fa22' : '#1e1e1e',
+                        border: data.chapters?.length > 0 ? '1px solid #60a5fa44' : '1px solid #333',
+                        borderRadius: '6px',
+                        color: data.chapters?.length > 0 ? '#60a5fa' : '#666',
+                        padding: '3px 8px',
+                        cursor: 'pointer',
+                        fontSize: '0.65rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#60a5fa'; e.currentTarget.style.color = '#60a5fa'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = data.chapters?.length > 0 ? '#60a5fa44' : '#333'; e.currentTarget.style.color = data.chapters?.length > 0 ? '#60a5fa' : '#666'; }}
+                >
+                    ✏️ เขียนเนื้อหา
+                </button>
+                {data.chapters?.length > 0 && (
+                    <span style={{ fontSize: '0.6rem', color: '#555' }}>
+                        {data.chapters.length} ตอน · {data.chapters.reduce((s, ch) => s + (ch.content?.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().split(/\s+/).filter(Boolean).length || 0), 0).toLocaleString()} คำ
+                    </span>
+                )}
+            </div>
+
             {/* Connections Section */}
             {(data.connectedCharacters?.length || data.connectedLocations?.length || data.connectedItems?.length) ? (
                 <div style={{
@@ -198,6 +229,9 @@ const StoryNode = ({ data, selected }) => {
                     </div>
                 </div>
             ) : null}
+
+            {/* Attached Status Tags */}
+            <AttachedStatuses statuses={data.attachedStatuses} onDetach={data.onDetachStatus} />
 
             {/* Side Handles (Left) - Assigned Points (Targets) */}
             <div style={{ position: 'absolute', left: '-22px', top: '25%', transform: 'translateY(-50%)', fontSize: '0.7rem', opacity: 0.7, pointerEvents: 'none' }}>👤</div>
